@@ -13,27 +13,39 @@ class LibroDAO:
         Inizializza l'ogetto DAO responsabile dell'accesso ai dati dei libri.
         """
         pass
-    def get_all_generi(self):
+    def get_generi(self)-> list[str]:
+
         """Recupera tutti i generi distinti (senza duplicati)dei libri presenti nel DB
         Returns:
-            list[str]: lista di stringhe conetente i nomi dei generi"""
+            list[str]: lista di stringhe contenente i nomi dei generi"""
         cnx = DBConnect.get_connection()
-        result = []
+
         if cnx is None:
-            return result
-        cursor = cnx.cursor(dictionary=True)
+            raise ConnectionError("Impossibile connetersi al database.")
+        cursor = cnx.cursor()
+
+        try:
+            query = """
+                    SELECT DISTINCT genere
+                    FROM libro
+                    WHERE genere IS NOT NULL
+                    ORDER BY genere ASC
+                """
         #query sql per estrarre generi unici (distinct), escludendo i valori NULl
-        query = "SELECT DISTINCT genere FROM libro WHERE genere IS NOT NULL ORDER BY genere"
-        cursor.execute(query)
 
-        for row in cursor:
+            cursor.execute(query)
+            lista_generi =[]
+
+            for row in cursor:
             #estrae la stringa del genere del dizzionario e la aggiunge alla lista
-            result.append(row['genere'])
-        cursor.close()
-        cnx.close()
-        return result
+                lista_generi.append(row[0])
+            return lista_generi
 
-    def get_libro_filtrati(self, id_biblioteca=None, genere=None):
+        finally:
+            cursor.close()
+            cnx.close()
+
+def get_libro_filtrati(self, biblioteca=str|None, genere=str | None)->list[Libro]:
         """Recupera i libri filtrati per biblioteca e/op per genere.
         Args:
             id_biblioteca (int/str, optional): ID della biblioteca da filtrare (None se nessun filtro )
@@ -44,8 +56,26 @@ class LibroDAO:
         cnx = DBConnect.get_connection()
         result = []
         if cnx is None:
-            return result
+            raise ConnectionError("Impossibile connetersi al database.")
         cursor = cnx.cursor(dictionary=True)
+
+        try:
+            query = """
+                SELECT 1.*
+                FROM libro 1, biblioteca b
+                WHERE b.id=1.id_biblioteca
+                    AND b.nome = COALESCE(%s, b.nome) AND 1.genere = COALESCE(%s, 1.genere)
+            """
+            cursor.execute(query,(biblioteca,genere))
+            lista_libri_filtrata = []
+
+            for row in cursor:
+                lista_libri_filtrata.append(Libro(**row))
+
+            return lista_libri_filtrata
+        finally:
+            cursor.close()
+            cnx.close()
 
         #SOPEGAZIONE QUERY SQL CON COALESCE:
         #LA FUNZIONE COALESCE(%s, colonna) restituisce il primo valore NON NULL tra i due argomenti.
